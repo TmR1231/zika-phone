@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#f4f4f2">
+  <meta name="description" content="本地优先的字卡小手机，角色、图片、聊天和备份都在自己手里。">
+  <title>字卡小手机</title>
+  <link rel="icon" href="assets/icons/phone-solid.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="styles.css">
+  <script src="utils.js" defer></script>
+  <script src="db.js" defer></script>
+  <script src="sfx.js" defer></script>
+  <script src="app.js" defer></script>
+</head>
+<body>
+  <div class="ambient ambient-one" aria-hidden="true"></div>
+  <div class="ambient ambient-two" aria-hidden="true"></div>
+
+  <main class="device" id="device">
+    <div class="screen" id="screen">
+      <header class="status-bar">
+        <span id="statusTime">--:--</span>
+        <span class="status-name"><span class="status-dot"></span>字卡小手机</span>
+        <span class="local-badge">本地</span>
+      </header>
+
+      <div class="view-stack" id="viewStack">
+        <section class="view home-view is-active" id="view-home" data-view="home" aria-label="手机桌面">
+          <div class="home-wallpaper" id="homeWallpaper">
+            <div class="home-content">
+              <div class="home-heading">
+                <p class="home-date" id="homeDate"></p>
+                <h1 id="homeClock">--:--</h1>
+                <p id="homeGreeting">把想说的话，留在自己的小手机里。</p>
+              </div>
+
+              <div class="app-grid" aria-label="应用">
+                <button class="app-button" type="button" data-nav="chats">
+                  <span class="app-symbol app-pink"><span class="icon icon-chat" aria-hidden="true"></span><span class="notification-dot" data-notification="chats" hidden></span></span>
+                  <span>消息</span>
+                </button>
+                <button class="app-button" type="button" data-nav="characters">
+                  <span class="app-symbol app-blue"><span class="icon icon-heart" aria-hidden="true"></span></span>
+                  <span>角色</span>
+                </button>
+                <button class="app-button" type="button" data-nav="cards">
+                  <span class="app-symbol app-lilac"><span class="icon icon-book" aria-hidden="true"></span></span>
+                  <span>字卡</span>
+                </button>
+                <button class="app-button" type="button" data-nav="mine">
+                  <span class="app-symbol app-sage"><span class="icon icon-reports" aria-hidden="true"></span></span>
+                  <span>数据</span>
+                </button>
+                <button class="app-button" type="button" id="homeWallpaperBtn">
+                  <span class="app-symbol app-peach"><span class="icon icon-computer" aria-hidden="true"></span></span>
+                  <span>壁纸</span>
+                </button>
+                <button class="app-button" type="button" data-nav="moments">
+                  <span class="app-symbol app-peach"><span class="icon icon-chat" aria-hidden="true"></span><span class="notification-dot" data-notification="moments" hidden></span></span>
+                  <span>朋友圈</span>
+                </button>
+                <button class="app-button" type="button" data-nav="letters">
+                  <span class="app-symbol app-blue"><span class="icon icon-mail" aria-hidden="true"></span><span class="notification-dot" data-notification="letters" hidden></span></span>
+                  <span>信箱</span>
+                </button>
+                <button class="app-button" type="button" id="homeTrashBtn">
+                  <span class="app-symbol app-gray"><span class="icon icon-clock" aria-hidden="true"></span></span>
+                  <span>回收站</span>
+                </button>
+              </div>
+
+              <section class="recent-panel" aria-labelledby="recentTitle">
+                <div class="recent-heading">
+                  <h2 id="recentTitle">最近说话</h2>
+                  <button type="button" class="text-button" data-nav="chats">全部消息</button>
+                </div>
+                <div id="homeRecentList"></div>
+              </section>
+            </div>
+          </div>
+        </section>
+
+        <section class="view standard-view" id="view-chats" data-view="chats" aria-label="消息">
+          <header class="view-header">
+            <div>
+              <p class="eyebrow">CONVERSATIONS</p>
+              <h1>消息</h1>
+            </div>
+            <button class="small-button primary" id="newGroupBtn" type="button">新建群聊</button>
+          </header>
+          <div id="conversationList" class="list-stack"></div>
+        </section>
+
+        <section class="view standard-view" id="view-characters" data-view="characters" aria-label="角色">
+          <header class="view-header">
+            <div>
+              <p class="eyebrow">CHARACTERS</p>
+              <h1>角色</h1>
+            </div>
+            <button class="small-button primary" id="newCharacterBtn" type="button">新建角色</button>
+          </header>
+          <div id="characterList" class="character-grid"></div>
+        </section>
+
+        <section class="view standard-view" id="view-cards" data-view="cards" aria-label="字卡仓库">
+          <header class="view-header cards-header">
+            <div>
+              <p class="eyebrow">CARD LIBRARY</p>
+              <h1 id="cardLibraryTitle">字卡仓库</h1>
+            </div>
+            <div class="header-actions">
+              <button class="small-button" id="cardToolsBtn" type="button">移动／导出</button>
+              <button class="small-button" id="batchCardsBtn" type="button">批量导入</button>
+              <button class="small-button primary" id="newCardBtn" type="button">新建字卡</button>
+            </div>
+          </header>
+          <div class="segmented library-tabs" role="tablist" aria-label="字卡仓库类型">
+            <button class="is-active" id="cardLibraryTab" type="button" role="tab" aria-selected="true" data-library-kind="card">字卡</button>
+            <button id="dictionaryLibraryTab" type="button" role="tab" aria-selected="false" data-library-kind="dictionary">词典</button>
+            <button id="emojiLibraryTab" type="button" role="tab" aria-selected="false" data-library-kind="emoji">emoji</button>
+            <button id="stickerLibraryTab" type="button" role="tab" aria-selected="false" data-library-kind="sticker">表情包</button>
+            <button id="imageLibraryTab" type="button" role="tab" aria-selected="false" data-library-kind="image">图片</button>
+            <button id="knowledgeLibraryTab" type="button" role="tab" aria-selected="false" data-library-kind="knowledge">知识库</button>
+          </div>
+          <div class="filter-panel">
+            <label class="search-box">
+              <span class="sr-only">搜索字卡</span>
+              <input id="cardSearch" type="search" placeholder="搜索字卡内容或分组" autocomplete="off">
+            </label>
+            <div class="filter-row">
+              <select id="cardOwnerFilter" aria-label="按角色筛选字卡">
+                <option value="all">全部字卡</option>
+                <option value="shared">公用字卡</option>
+              </select>
+              <select id="cardGroupFilter" aria-label="按分组筛选字卡">
+                <option value="all">全部分组</option>
+              </select>
+            </div>
+          </div>
+          <button class="preset-entry" id="presetLibraryBtn" type="button">情绪／意图、角色状态与已读预设</button>
+          <p class="data-note library-description" id="libraryDescription">命中词典时，抽中的词条会不重复地拼进同一句话。</p>
+          <div class="library-summary">
+            <p class="list-caption" id="cardCount"></p>
+            <div class="library-view-actions">
+              <button class="text-button muted" id="cardDensityBtn" type="button">紧凑</button>
+              <button class="text-button muted" id="collapseAllCardsBtn" type="button">全部折叠</button>
+            </div>
+          </div>
+          <div id="cardList" class="list-stack"></div>
+        </section>
+
+        <section class="view standard-view" id="view-moments" data-view="moments" aria-label="朋友圈">
+          <header class="view-header">
+            <div><p class="eyebrow">MOMENTS</p><h1>朋友圈</h1></div>
+            <button class="small-button primary" id="newMomentBtn" type="button">发一条</button>
+          </header>
+          <p class="data-note">你和大家的日子，都放在这里。</p>
+          <div id="momentList" class="social-list"></div>
+        </section>
+
+        <section class="view standard-view" id="view-letters" data-view="letters" aria-label="信箱">
+          <header class="view-header">
+            <div><p class="eyebrow">LETTERS</p><h1>信箱</h1></div>
+            <button class="small-button primary" id="newLetterBtn" type="button">写一封信</button>
+          </header>
+          <div class="filter-row letter-filters">
+            <select id="letterDirectionFilter" aria-label="按收发筛选信件"><option value="all">全部信件</option><option value="received">收到的</option><option value="sent">寄出的</option></select>
+            <select id="letterCharacterFilter" aria-label="按角色筛选信件"><option value="all">全部角色</option></select>
+          </div>
+          <div id="letterList" class="social-list"></div>
+        </section>
+
+        <section class="view standard-view" id="view-mine" data-view="mine" aria-label="我的和数据">
+          <header class="view-header">
+            <div>
+              <p class="eyebrow">MY SPACE</p>
+              <h1>我的</h1>
+            </div>
+          </header>
+
+          <button class="profile-card" id="editProfileBtn" type="button">
+            <span id="profileAvatar"></span>
+            <span class="profile-copy">
+              <strong id="profileName">我</strong>
+              <small>名字和头像都可以换</small>
+            </span>
+            <span class="profile-edit">编辑</span>
+          </button>
+
+          <section class="settings-section" aria-labelledby="appearanceTitle">
+            <h2 id="appearanceTitle">外观</h2>
+            <div class="settings-card">
+              <div class="setting-row theme-row">
+                <span>主题</span>
+                <div class="segmented" role="group" aria-label="主题">
+                  <button type="button" data-theme-value="light">浅色</button>
+                  <button type="button" data-theme-value="dark">深色</button>
+                </div>
+              </div>
+              <div class="setting-row theme-row">
+                <span>聊天气泡</span>
+                <div class="segmented" role="group" aria-label="聊天气泡">
+                  <button type="button" data-bubble-value="default">默认</button>
+                  <button type="button" data-bubble-value="miffy">米菲兔</button>
+                </div>
+              </div>
+              <div class="setting-row">
+                <span id="currentFontName">系统默认字体</span>
+                <span class="setting-actions">
+                  <button class="text-button" id="changeFontBtn" type="button">上传字体</button>
+                  <button class="text-button muted" id="resetFontBtn" type="button">恢复默认</button>
+                </span>
+              </div>
+              <div class="setting-row">
+                <span>桌面壁纸</span>
+                <span class="setting-actions">
+                  <button class="text-button" id="changeWallpaperBtn" type="button">更换</button>
+                  <button class="text-button muted" id="resetWallpaperBtn" type="button">恢复默认</button>
+                </span>
+              </div>
+            </div>
+          </section>
+
+          <section class="settings-section" aria-labelledby="soundTitle">
+            <h2 id="soundTitle">声音与通话</h2>
+            <div class="settings-card feature-settings">
+              <button class="feature-setting-row" id="soundSettingsBtn" type="button">
+                <span class="feature-setting-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6.5 9H3v6h3.5l4.5 4z"/><path d="M15 9.5a4 4 0 0 1 0 5"/><path d="M17.8 7a7.5 7.5 0 0 1 0 10"/></svg></span>
+                <span class="feature-setting-copy"><strong>消息与来电音效</strong><small>私聊、群聊、铃声与音量</small></span>
+                <span class="feature-setting-arrow" aria-hidden="true">›</span>
+              </button>
+              <button class="feature-setting-row" id="callStatsBtn" type="button">
+                <span class="feature-setting-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3h3l1.5 4-2 1.5a15 15 0 0 0 6 6L17 12l4 1.5v3c0 2-1.5 4-4 4C9 20 4 15 3.5 7 3.5 4.5 5 3 7 3Z"/><path d="M15 4v4M19 4v4M14 6h7"/></svg></span>
+                <span class="feature-setting-copy"><strong>通话记录与统计</strong><small>来电、去电与分角色时长</small></span>
+                <span class="feature-setting-arrow" aria-hidden="true">›</span>
+              </button>
+            </div>
+          </section>
+
+          <section class="settings-section" aria-labelledby="backupTitle">
+            <h2 id="backupTitle">数据与备份</h2>
+            <div class="settings-card data-card">
+              <p class="data-note">数据只存在当前浏览器。清理浏览器数据、换设备或换浏览器前，请先导出完整备份。</p>
+              <div class="data-stats" id="dataStats"></div>
+              <div class="storage-line" id="storageUsage">正在估算本地占用…</div>
+              <div class="button-grid">
+                <button class="setting-button accent" id="exportBtn" type="button"><span class="icon icon-reports" aria-hidden="true"></span>导出完整备份</button>
+                <button class="setting-button" id="importBtn" type="button"><span class="icon icon-mail" aria-hidden="true"></span>导入备份</button>
+                <button class="setting-button" id="snapshotsBtn" type="button"><span class="icon icon-clock" aria-hidden="true"></span>本地快照</button>
+                <button class="setting-button" id="trashBtn" type="button"><span class="icon icon-book" aria-hidden="true"></span>回收站</button>
+              </div>
+              <button class="persist-button" id="storagePersistBtn" type="button">请求浏览器持久保留本地数据</button>
+              <p class="fine-print">持久保留由浏览器决定，不等于备份。自动快照只能救操作失误，完整备份文件才能陪你换设备。</p>
+            </div>
+          </section>
+
+          <section class="settings-section danger-section" aria-labelledby="dangerTitle">
+            <h2 id="dangerTitle">重新开始</h2>
+            <button class="danger-button" id="clearAllBtn" type="button">清空当前小手机</button>
+            <p>清空前会自动留一份本地快照，仍需你手动导出才能带离这个浏览器。</p>
+          </section>
+        </section>
+
+        <section class="conversation-view" id="conversationView" aria-label="聊天" hidden>
+          <header class="conversation-header">
+            <button class="round-button back-button" id="backFromChatBtn" type="button" aria-label="返回消息">‹</button>
+            <span id="conversationAvatar"></span>
+            <div class="conversation-heading">
+              <h1 id="conversationTitle"></h1>
+              <p id="conversationSubtitle"></p>
+            </div>
+            <button class="round-button call-action-button" id="voiceCallBtn" type="button" aria-label="发起语音通话" title="语音通话"><span class="icon icon-phone" aria-hidden="true"></span></button>
+            <button class="round-button call-action-button" id="videoCallBtn" type="button" aria-label="发起视频通话" title="视频通话"><span class="video-symbol" aria-hidden="true"></span></button>
+            <button class="round-button more-button" id="conversationMenuBtn" type="button" aria-label="会话设置">•••</button>
+          </header>
+          <div class="message-scroll" id="messageScroll">
+            <div id="messageList" class="message-list"></div>
+            <div class="typing-indicator" id="typingIndicator" hidden>
+              <span class="typing-dots"><i></i><i></i><i></i></span>
+              <span id="typingText"></span>
+            </div>
+          </div>
+          <form class="composer" id="composerForm">
+            <div class="composer-quote-preview" id="composerQuote" hidden>
+              <span id="composerQuoteText"></span>
+              <button id="clearQuoteBtn" type="button" aria-label="取消引用">×</button>
+            </div>
+            <button class="composer-icon" id="chatImageBtn" type="button" aria-label="发送图片或问卷" title="发送图片或问卷">＋</button>
+            <button class="composer-icon talk-button" id="talkBtn" type="button" aria-label="让对方说话" title="让对方说话"><span class="icon icon-chat" aria-hidden="true"></span></button>
+            <label class="composer-input">
+              <span class="sr-only">输入消息</span>
+              <textarea id="messageInput" rows="1" maxlength="4000" placeholder="说点什么…"></textarea>
+            </label>
+            <button class="send-button" id="sendMessageBtn" type="submit" aria-label="发送">
+              <span class="icon icon-send" aria-hidden="true"></span>
+            </button>
+            <p class="composer-hint" id="composerHint"></p>
+          </form>
+        </section>
+
+        <section class="call-view" id="callView" aria-label="模拟通话" hidden>
+          <button class="call-expand" id="callExpandBtn" type="button" aria-label="展开通话" title="展开通话"></button>
+          <button class="call-minimize" id="callMinimizeBtn" type="button" aria-label="最小化通话" title="最小化通话">—</button>
+          <div class="call-glow" aria-hidden="true"></div>
+          <p class="call-kind" id="callKind">语音通话</p>
+          <div class="call-avatar-wrap" id="callAvatarWrap">
+            <span id="callAvatar"></span>
+          </div>
+          <h1 id="callName"></h1>
+          <p class="call-status" id="callStatus">正在呼叫…</p>
+          <div class="call-scene" id="callScene" hidden>
+            <span><small>表情</small><strong id="callExpression">平静</strong></span>
+            <span><small>地点</small><strong id="callLocation">未设置</strong></span>
+            <span><small>穿着</small><strong id="callOutfit">未设置</strong></span>
+          </div>
+          <strong class="call-duration" id="callDuration">00:00</strong>
+          <span class="call-self-view" id="callSelfView" aria-label="我的视频画面" hidden></span>
+          <button class="call-hangup" id="callHangupBtn" type="button">挂断</button>
+          <div class="call-incoming-actions" id="callIncomingActions" hidden>
+            <button class="call-reject" id="rejectCallBtn" type="button">拒绝</button>
+            <button class="call-answer" id="answerCallBtn" type="button">接听</button>
+          </div>
+          <p class="call-disclaimer">字卡模拟通话 · 不使用真实麦克风或摄像头</p>
+        </section>
+      </div>
+
+      <nav class="bottom-nav" id="mainNav" aria-label="主导航">
+        <button class="is-active" type="button" data-nav="home" aria-label="桌面"><span class="icon icon-phone" aria-hidden="true"></span><span>桌面</span></button>
+        <button type="button" data-nav="chats" aria-label="消息"><span class="icon icon-chat" aria-hidden="true"></span><span>消息</span><span class="notification-dot" data-notification="chats" hidden></span></button>
+        <button type="button" data-nav="characters" aria-label="角色"><span class="icon icon-heart" aria-hidden="true"></span><span>角色</span></button>
+        <button type="button" data-nav="cards" aria-label="字卡"><span class="icon icon-book" aria-hidden="true"></span><span>字卡</span></button>
+        <button type="button" data-nav="mine" aria-label="我的"><span class="icon icon-computer" aria-hidden="true"></span><span>我的</span></button>
+      </nav>
+
+      <div class="modal-layer" id="modalLayer" hidden>
+        <button class="modal-backdrop" id="modalBackdrop" type="button" aria-label="关闭弹窗"></button>
+        <section class="sheet" role="dialog" aria-modal="true" aria-labelledby="sheetTitle">
+          <header class="sheet-header">
+            <h2 id="sheetTitle"></h2>
+            <button class="round-button" id="closeSheetBtn" type="button" aria-label="关闭">×</button>
+          </header>
+          <div class="sheet-body" id="sheetBody"></div>
+        </section>
+      </div>
+
+      <div class="confirm-layer" id="confirmLayer" hidden>
+        <section class="confirm-dialog" role="alertdialog" aria-modal="true" aria-labelledby="confirmTitle" aria-describedby="confirmMessage">
+          <h2 id="confirmTitle"></h2>
+          <p id="confirmMessage"></p>
+          <div class="confirm-actions">
+            <button class="small-button" id="confirmCancelBtn" type="button">取消</button>
+            <button class="small-button primary" id="confirmOkBtn" type="button">确定</button>
+          </div>
+        </section>
+      </div>
+
+      <div class="image-viewer" id="imageViewer" hidden>
+        <button class="viewer-close" id="closeViewerBtn" type="button" aria-label="关闭图片">×</button>
+        <img id="viewerImage" alt="放大的聊天图片">
+      </div>
+
+      <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+      <div class="loading-screen" id="loadingScreen">
+        <span class="loading-logo"><span class="icon icon-phone" aria-hidden="true"></span></span>
+        <strong>字卡小手机</strong>
+        <span>正在把角色和记录安置好…</span>
+      </div>
+    </div>
+  </main>
+
+  <input type="file" id="avatarInput" accept="image/png,image/jpeg,image/webp" hidden>
+  <input type="file" id="wallpaperInput" accept="image/png,image/jpeg,image/webp" hidden>
+  <input type="file" id="fontInput" accept=".ttf,.otf,.woff,.woff2,font/ttf,font/otf,font/woff,font/woff2" hidden>
+  <input type="file" id="chatImageInput" accept="image/png,image/jpeg,image/webp" hidden>
+  <input type="file" id="importInput" accept=".json,application/json" hidden>
+  <input type="file" id="textImportInput" accept=".txt,text/plain" hidden>
+  <input type="file" id="socialImageInput" accept="image/png,image/jpeg,image/webp" hidden>
+  <input type="file" id="libraryImageInput" accept="image/png,image/jpeg,image/webp,image/gif" multiple hidden>
+</body>
+</html>

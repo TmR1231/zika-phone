@@ -1,0 +1,10 @@
+{
+  "name": "zika-phone",
+  "version": "1.0.0",
+  "private": true,
+  "description": "一个本地优先、带图片和完整备份的字卡小手机",
+  "scripts": {
+    "start": "node server.js",
+    "check": "node --check utils.js && node --check db.js && node --check sfx.js && node --check app.js && node --check server.js"
+  }
+}
