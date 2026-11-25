@@ -185,7 +185,7 @@
   }
 
   function dictionaryPoolForCharacter(character, settings) {
-    if (!settings.mergeCards) return [];
+    if (!settings.mergeCards || (!settings.dictionarySingle && !settings.dictionaryMulti)) return [];
     const pool = dictionaryCardsForCharacter(character.id).map(card => card.text);
     if (settings.dictionaryMixShort) pool.push(...ZikaUtils.shortDictionaryTexts(cardsForCharacter(character.id)));
     return [...new Set(pool)];
@@ -561,8 +561,13 @@
 
   function applyTheme() {
     const theme = state.settings.theme === "dark" ? "dark" : "light";
+    const bubble = ["default", "miffy", "custom"].includes(state.settings.bubbleStyle) ? state.settings.bubbleStyle : "default";
     document.documentElement.dataset.theme = theme;
-    document.documentElement.dataset.bubble = state.settings.bubbleStyle === "miffy" ? "miffy" : "default";
+    document.documentElement.dataset.bubble = bubble;
+    const customCss = String(state.settings.customBubbleCss || "");
+    $("customBubbleStyle").textContent = bubble === "custom" ? customCss : "";
+    $("customBubbleEditor").hidden = bubble !== "custom";
+    if ($("customBubbleCss").value !== customCss) $("customBubbleCss").value = customCss;
     document.querySelector('meta[name="theme-color"]').content = theme === "dark" ? "#111111" : "#f4f4f2";
     document.querySelectorAll("[data-theme-value]").forEach(button => {
       const selected = button.dataset.themeValue === theme;
@@ -842,7 +847,7 @@
     const titles = { card: "字卡仓库", dictionary: "词典仓库", emoji: "emoji 仓库", sticker: "表情包仓库", image: "图片仓库", knowledge: "知识库" };
     const descriptions = {
       card: "字卡按归属与分组整理；点分组旁的「＋ 批量」，就能一行一句直接添加。",
-      dictionary: "词典遵循多字卡总闸，可混入符合条件的短字卡；命中后不重复地拼进同一句话，emoji 与媒体不会混入。",
+      dictionary: "词典遵循多字卡总闸，可混入符合条件的短字卡；每条回复独立判定，可拼进同一句话或逐卡连发，emoji 与媒体不会混入。",
       emoji: "emoji 会按每个会话的概率跟在文字或图片配文后面，不参与词典拼接。",
       sticker: "表情包可以单独发送，也可以带一句字卡配文；支持 PNG、JPG、WebP 和 GIF 动图。",
       image: "图片先于表情包判定，可以单独发送或带配文；原图随完整 JSON 备份一起导出。",
@@ -2917,10 +2922,14 @@
     const quote = message.quoteText ? `<div class="message-quote">${esc(message.quoteText)}</div>` : "";
     const quiz = message.quiz ? quizMarkup(message) : "";
     const knowledgeCard = message.knowledgeId ? `<button class="knowledge-message-card" type="button" data-open-knowledge="${esc(message.id)}"><span>知识字卡</span><strong>《${esc(message.knowledgeTitle || "未命名")}》</strong>${message.knowledgeSource ? `<small>出自：${esc(message.knowledgeSource)}</small>` : ""}<span class="knowledge-message-open">点开复习 ›</span></button>` : "";
+    const allowedReplyTags = ["多字卡回复", "词典拼词", "词典拼句", "词典", "词典逐卡连发"];
+    const rawReplyTags = Array.isArray(message.replyTags) ? message.replyTags : message.source === "dictionary" ? ["词典"] : [];
+    const replyTags = mine ? [] : [...new Set(rawReplyTags.filter(tag => allowedReplyTags.includes(tag)))];
+    const sourceTags = replyTags.length ? `<div class="message-source-tags">${replyTags.map(tag => `<span class="message-source-tag">${esc(tag)}</span>`).join("")}</div>` : "";
     const text = message.special === "read"
       ? `<div class="message-bubble read-receipt">${esc(message.text || "已读不回")}</div>`
       : message.knowledgeId ? `<div class="message-bubble knowledge-message-bubble">${quote}${esc(knowledgeMessageText(message))}${knowledgeCard}</div>`
-      : message.text && !message.quiz ? `<div class="message-bubble ${message.assetId ? "message-caption" : ""}">${quote}${esc(message.text)}</div>` : "";
+      : message.text && !message.quiz ? `<div class="message-bubble ${message.assetId ? "message-caption" : ""}">${quote}${esc(message.text)}${sourceTags}</div>` : "";
     const note = message.note ? `<div class="message-note">${esc(message.note)}</div>` : "";
     const saveAction = mine && message.text && !message.quiz ? `<button class="message-action" type="button" data-save-message="${esc(message.id)}" aria-label="把这条消息收进字卡" title="收进字卡">＋</button>` : "";
     const quoteAction = !mine && message.text && !message.quiz && message.special !== "read" ? `<button class="message-action quote-message-action" type="button" data-quote-message="${esc(message.id)}" title="引用这句字卡">引用</button>` : "";
@@ -3462,8 +3471,6 @@
     const randomCount = (min, max) => min + Math.floor(Math.random() * (max - min + 1));
     const knowledgePool = proactive && conversation.type === "private" && !groupMember ? knowledgeCards() : [];
     const useKnowledge = knowledgePool.length > 0 && Math.random() * 100 < settings.knowledgeChance;
-    const dictionaryCandidates = candidates.map(character => ({ character, pool: dictionaryPoolForCharacter(character, settings) })).filter(item => item.pool.length);
-    const useDictionary = !useKnowledge && dictionaryCandidates.length > 0 && Math.random() * 100 < settings.dictionaryChance;
     let chosen;
     const outgoing = [];
     const withEmoji = (character, text) => {
@@ -3478,10 +3485,28 @@
         ? { ...settings, countMin: settings.multiMin, countMax: settings.multiMax }
         : { ...settings, countMin: 1, countMax: 1 };
       const reply = pickReplyCards(character, drawSettings);
-      const text = combine && reply.cards.length > 1
+      const multi = combine && reply.cards.length > 1;
+      const text = multi
         ? ZikaUtils.composeReplyText(reply.cards.map(card => card.text), settings)
         : reply.cards[0]?.text || "";
-      return withEmoji(character, text);
+      return { text: withEmoji(character, text), multi };
+    };
+    const drawDictionary = (character, pool) => {
+      const entries = ZikaUtils.pickDictionaryEntries(pool, settings.dictionaryMin, settings.dictionaryMax);
+      const single = settings.dictionarySingle && (!settings.dictionaryMulti || Math.random() >= 0.2);
+      if (single) {
+        const dictionaryTag = entries.every(text => text.length > 4) ? "词典拼句" : "词典拼词";
+        return [{
+          text: withEmoji(character, ZikaUtils.joinCardTexts(entries)),
+          source: "dictionary",
+          replyTags: [dictionaryTag, ...(entries.length > 1 ? ["多字卡回复"] : [])]
+        }];
+      }
+      return entries.map(text => ({
+        text: withEmoji(character, text),
+        source: "dictionary",
+        replyTags: ["词典", "词典逐卡连发"]
+      }));
     };
     if (useKnowledge) {
       chosen = candidates[0];
@@ -3489,11 +3514,6 @@
       const presets = state.settings.knowledgePresets.map(preset => String(preset || "").trim()).filter(Boolean);
       const preset = presets.length ? presets[Math.floor(Math.random() * presets.length)] : "想让你复习这个";
       outgoing.push({ text: formatKnowledgePush(card, preset), source: "knowledge", knowledgeId: card.id, knowledgeTitle: card.title, knowledgeText: card.text, knowledgeSource: card.source || "" });
-    } else if (useDictionary) {
-      const selected = dictionaryCandidates[Math.floor(Math.random() * dictionaryCandidates.length)];
-      chosen = selected.character;
-      const entries = ZikaUtils.pickDictionaryEntries(selected.pool, settings.dictionaryMin, settings.dictionaryMax);
-      outgoing.push({ text: withEmoji(chosen, ZikaUtils.joinCardTexts(entries)), source: "dictionary", dictionary: true });
     } else {
       const available = candidates.map(character => ({
         character,
@@ -3512,12 +3532,15 @@
       chosen = selected.character;
       const messageCount = randomCount(settings.countMin, settings.countMax);
       for (let index = 0; index < messageCount; index++) {
+        if (selected.dictionary.length && Math.random() * 100 < settings.dictionaryChance) {
+          outgoing.push(...drawDictionary(chosen, selected.dictionary));
+          continue;
+        }
         let kind = selected.images.length && Math.random() * 100 < settings.imageChance
           ? "image"
           : selected.stickers.length && Math.random() * 100 < settings.stickerChance ? "sticker" : "text";
         if (kind === "text" && !selected.main.length && selected.dictionary.length) {
-          const entries = ZikaUtils.pickDictionaryEntries(selected.dictionary, settings.dictionaryMin, settings.dictionaryMax);
-          outgoing.push({ text: withEmoji(chosen, ZikaUtils.joinCardTexts(entries)), source: "dictionary", dictionary: true });
+          outgoing.push(...drawDictionary(chosen, selected.dictionary));
           continue;
         }
         if (kind === "text" && !selected.main.length) {
@@ -3528,10 +3551,11 @@
         if (kind === "image" || kind === "sticker") {
           const pool = kind === "image" ? selected.images : selected.stickers;
           const card = pool[Math.floor(Math.random() * pool.length)];
-          outgoing.push({ text: settings.mediaCaption ? drawText(chosen) : "", assetId: card.assetId, mediaKind: kind, source: kind });
+          const caption = settings.mediaCaption ? drawText(chosen) : { text: "", multi: false };
+          outgoing.push({ text: caption.text, assetId: card.assetId, mediaKind: kind, source: kind, replyTags: caption.multi ? ["多字卡回复"] : [] });
         } else {
-          const text = drawText(chosen);
-          if (text) outgoing.push({ text, source: "cards" });
+          const reply = drawText(chosen);
+          if (reply.text) outgoing.push({ text: reply.text, source: "cards", replyTags: reply.multi ? ["多字卡回复"] : [] });
         }
       }
     }
@@ -3564,6 +3588,7 @@
           senderName: currentCharacter.name,
           text: card.text || "",
           source: card.source || (card.dictionary ? "dictionary" : "cards"),
+          replyTags: Array.isArray(card.replyTags) ? card.replyTags : [],
           knowledgeId: card.knowledgeId || "",
           knowledgeTitle: card.knowledgeTitle || "",
           knowledgeText: card.knowledgeText || "",
@@ -3754,7 +3779,7 @@
           <label class="field"><span>引用回复概率（%）</span><input id="replyQuoteChance" type="number" min="0" max="100" step="1" value="${settings.quoteChance}" required></label>
           <label class="field"><span>情绪／意图小注概率（%）</span><input id="replyNoteChance" type="number" min="0" max="100" step="1" value="${settings.noteChance}" required></label>
         </div>
-        <label class="toggle-field"><input id="replyMergeCards" type="checkbox" ${settings.mergeCards ? "checked" : ""}><span><strong>多字卡回复</strong><small>开启后，每条回复按下面的概率抽多张字卡并拼成一条。</small></span></label>
+        <label class="toggle-field"><input id="replyMergeCards" type="checkbox" ${settings.mergeCards ? "checked" : ""}><span><strong>多字卡回复</strong><small>开启后，每条回复按下面的概率抽多张字卡并拼成一条；它也是词典回复的总开关。</small></span></label>
         <div class="field-grid">
           <label class="field"><span>多字卡概率（%）</span><input id="replyMultiChance" type="number" min="0" max="100" step="1" value="${settings.multiChance}" required></label>
           <label class="field"><span>按标点拆句概率（%）</span><input id="replySplitChance" type="number" min="0" max="100" step="1" value="${settings.splitChance}" required></label>
@@ -3770,6 +3795,8 @@
           <label class="field"><span>词典最多抽取</span><input id="replyDictionaryMax" type="number" min="1" max="10" step="1" value="${settings.dictionaryMax}" required></label>
         </div>
         <label class="toggle-field"><input id="replyDictionaryMixShort" type="checkbox" ${settings.dictionaryMixShort ? "checked" : ""}><span><strong>词典混入短字卡</strong><small>按 mochi 的规则，混入 2～26 字且至少两个汉字的启用字卡；emoji、图片和其他媒体不会混入。关闭多字卡回复时，词典也停用。</small></span></label>
+        <label class="toggle-field"><input id="replyDictionarySingle" type="checkbox" ${settings.dictionarySingle ? "checked" : ""}><span><strong>词典单气泡拼字</strong><small>把抽中的词条拼进同一条消息，显示「词典拼词」或「词典拼句」。</small></span></label>
+        <label class="toggle-field"><input id="replyDictionaryMulti" type="checkbox" ${settings.dictionaryMulti ? "checked" : ""}><span><strong>词典逐卡连发</strong><small>每张词条单独发一条，显示「词典」与「词典逐卡连发」。两种形态都开启时，80% 单气泡、20% 逐卡连发。</small></span></label>
         <div class="field-grid">
           <label class="field"><span>emoji 后缀概率（%）</span><input id="replyEmojiChance" type="number" min="0" max="100" step="1" value="${settings.emojiChance}" required></label>
           <label class="field"><span>表情包概率（%）</span><input id="replyStickerChance" type="number" min="0" max="100" step="1" value="${settings.stickerChance}" required></label>
@@ -3785,7 +3812,7 @@
           <label class="field"><span>对方主动挂断概率（%）</span><input id="replyCallAutoHangupChance" type="number" min="0" max="100" step="1" value="${settings.callAutoHangupChance}" required></label>
         </div>
         <p class="data-note">来电按私聊独立调度，语音与视频都可能出现；0% 关闭主动来电。接通满 3 分钟后，每分钟按挂断概率判定一次，0% 表示对方不会主动挂断。</p>` : ""}
-        <p class="data-note">词典触发后，抽中的词条会不重复地拼进同一句话，不再逐条连发；只使用当前角色可用的公用与专属词条。</p>
+        <p class="data-note">每条回复独立判定是否触发词典，词条不重复；只使用当前角色可用的公用与专属词条。普通单字卡不显示来源，实际拼入至少两张字卡时才显示「多字卡回复」。两种词典形态都关闭时，词典不参与回复。</p>
         <label class="field"><span>正在输入的文案</span><input id="replyTypingText" maxlength="30" value="${esc(settings.typingText)}" placeholder="正在输入…"><small>引用从近十条文字消息中挑选；小注从预设库随机抽取，概率为0%即关闭。</small></label>
         <div class="form-actions">
           <button class="small-button" id="cancelReplySettingsBtn" type="button">取消</button>
@@ -3817,6 +3844,8 @@
         dictionaryMin: $("replyDictionaryMin").value,
         dictionaryMax: $("replyDictionaryMax").value,
         dictionaryMixShort: $("replyDictionaryMixShort").checked,
+        dictionarySingle: $("replyDictionarySingle").checked,
+        dictionaryMulti: $("replyDictionaryMulti").checked,
         emojiChance: $("replyEmojiChance").value,
         stickerChance: $("replyStickerChance").value,
         imageChance: $("replyImageChance").value,
@@ -4143,6 +4172,17 @@
         await persist();
         applyTheme();
       });
+    });
+    $("customBubbleCss").addEventListener("input", event => {
+      state.settings.customBubbleCss = event.target.value;
+      if (state.settings.bubbleStyle === "custom") $("customBubbleStyle").textContent = state.settings.customBubbleCss;
+    });
+    $("saveCustomBubbleCssBtn").addEventListener("click", async () => {
+      state.settings.bubbleStyle = "custom";
+      state.settings.customBubbleCss = $("customBubbleCss").value;
+      await persist();
+      applyTheme();
+      toast("气泡 CSS 已保存，去消息里看看效果吧");
     });
 
     document.addEventListener("change", async event => {

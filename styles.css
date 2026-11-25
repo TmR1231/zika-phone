@@ -1325,6 +1325,31 @@ html[data-theme="dark"] .character-chat {
   box-shadow: 0 2px 7px rgba(70, 75, 90, 0.08);
 }
 
+.custom-bubble-editor {
+  padding: 14px 16px;
+  border-top: 1px solid var(--line);
+}
+
+.custom-bubble-editor[hidden] {
+  display: none;
+}
+
+.custom-bubble-editor + .setting-row {
+  border-top: 1px solid var(--line);
+}
+
+.custom-bubble-editor textarea {
+  min-height: 180px;
+  font-family: "Cascadia Code", "SFMono-Regular", Consolas, monospace;
+  font-size: 11px;
+  line-height: 1.6;
+  tab-size: 2;
+}
+
+.custom-bubble-editor small code {
+  overflow-wrap: anywhere;
+}
+
 .data-card {
   padding: 14px;
 }
@@ -2048,6 +2073,29 @@ html[data-theme="dark"] .character-chat {
   line-height: 1.65;
   overflow-wrap: anywhere;
   white-space: pre-wrap;
+}
+
+.message-source-tags {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 7px;
+  margin-top: 5px;
+  padding-top: 5px;
+  border-top: 1px dashed currentColor;
+  opacity: 0.58;
+}
+
+.message-source-tag {
+  display: inline-block;
+  padding: 0 5px;
+  border-radius: 999px;
+  color: inherit;
+  background: rgba(127, 127, 127, 0.16);
+  font-size: 9px;
+  font-weight: 600;
+  line-height: 1.8;
+  white-space: nowrap;
 }
 
 .knowledge-message-bubble {
@@ -3388,12 +3436,12 @@ img.avatar {
   background: var(--surface);
 }
 
-html:not([data-bubble="miffy"]) .message-row.mine .message-bubble {
+html[data-bubble="default"] .message-row.mine .message-bubble {
   color: #ffffff;
   background: #1c1c1e;
 }
 
-html:not([data-bubble="miffy"]) .message-row:not(.mine) .message-bubble {
+html[data-bubble="default"] .message-row:not(.mine) .message-bubble {
   color: #1c1c1e;
   background: #ffffff;
 }

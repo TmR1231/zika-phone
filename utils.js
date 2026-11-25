@@ -76,6 +76,8 @@
       dictionaryMin,
       dictionaryMax,
       dictionaryMixShort: input.dictionaryMixShort === undefined ? true : input.dictionaryMixShort === true,
+      dictionarySingle: input.dictionarySingle === undefined ? true : input.dictionarySingle === true,
+      dictionaryMulti: input.dictionaryMulti === undefined ? true : input.dictionaryMulti === true,
       emojiChance: number(input.emojiChance, 15, 0, 100),
       stickerChance: number(input.stickerChance, 10, 0, 100),
       imageChance: number(input.imageChance, 5, 0, 100),

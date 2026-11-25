@@ -35,6 +35,7 @@
         fontName: "",
         theme: "light",
         bubbleStyle: "default",
+        customBubbleCss: "",
         libraryCompact: true,
         dailyCard: null,
         cardCollapse: { owners: [], groups: [] },
@@ -64,6 +65,8 @@
       state[key] = Array.isArray(input[key]) ? input[key] : [];
     }
     state.settings = { ...base.settings, ...(input.settings || {}) };
+    if (!["default", "miffy", "custom"].includes(state.settings.bubbleStyle)) state.settings.bubbleStyle = "default";
+    state.settings.customBubbleCss = String(state.settings.customBubbleCss || "").slice(0, 20000);
     for (const key of ["notePresets", "statusPresets", "readPresets", "knowledgePresets", "dictionary", "unreadConversationIds", "unreadMomentIds"]) {
       if (!Array.isArray(state.settings[key])) state.settings[key] = [...base.settings[key]];
     }

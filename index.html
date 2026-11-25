@@ -8,6 +8,7 @@
   <title>字卡小手机</title>
   <link rel="icon" href="assets/icons/phone-solid.svg" type="image/svg+xml">
   <link rel="stylesheet" href="styles.css">
+  <style id="customBubbleStyle"></style>
   <script src="utils.js" defer></script>
   <script src="db.js" defer></script>
   <script src="sfx.js" defer></script>
@@ -139,7 +140,7 @@
             </div>
           </div>
           <button class="preset-entry" id="presetLibraryBtn" type="button">情绪／意图、角色状态与已读预设</button>
-          <p class="data-note library-description" id="libraryDescription">命中词典时，抽中的词条会不重复地拼进同一句话。</p>
+          <p class="data-note library-description" id="libraryDescription">词典每条回复独立判定，可不重复地拼进同一句话或逐卡连发。</p>
           <div class="library-summary">
             <p class="list-caption" id="cardCount"></p>
             <div class="library-view-actions">
@@ -203,7 +204,12 @@
                 <div class="segmented" role="group" aria-label="聊天气泡">
                   <button type="button" data-bubble-value="default">默认</button>
                   <button type="button" data-bubble-value="miffy">米菲兔</button>
+                  <button type="button" data-bubble-value="custom">自定义 CSS</button>
                 </div>
+              </div>
+              <div class="custom-bubble-editor" id="customBubbleEditor" hidden>
+                <label class="field"><span>我的气泡 CSS</span><textarea id="customBubbleCss" maxlength="20000" spellcheck="false" placeholder="html[data-bubble=&quot;custom&quot;] .message-row:not(.mine) .message-bubble {&#10;  color: #333;&#10;  background: #f4dfe7;&#10;  border-radius: 18px 4px 18px 18px;&#10;}"></textarea><small>对方气泡用 <code>.message-row:not(.mine) .message-bubble</code>，自己的用 <code>.message-row.mine .message-bubble</code>。建议像示例一样带上 <code>html[data-bubble="custom"]</code> 前缀，确保覆盖内置样式。</small></label>
+                <div class="form-actions"><button class="small-button primary" id="saveCustomBubbleCssBtn" type="button">保存并应用 CSS</button></div>
               </div>
               <div class="setting-row">
                 <span id="currentFontName">系统默认字体</span>
