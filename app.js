@@ -21,6 +21,17 @@
     letterList: $("letterList"),
     letterDirectionFilter: $("letterDirectionFilter"),
     letterCharacterFilter: $("letterCharacterFilter"),
+    gringottsBalance: $("gringottsBalance"),
+    gringottsOverview: $("gringottsOverview"),
+    ledgerAccountList: $("ledgerAccountList"),
+    ledgerAccountFilter: $("ledgerAccountFilter"),
+    ledgerGringottsPanel: $("ledgerGringottsPanel"),
+    ledgerBookkeepingPanel: $("ledgerBookkeepingPanel"),
+    ledgerDateFilter: $("ledgerDateFilter"),
+    ledgerMonthFilter: $("ledgerMonthFilter"),
+    ledgerTotals: $("ledgerTotals"),
+    ledgerEntryList: $("ledgerEntryList"),
+    clearLedgerBtn: $("clearLedgerBtn"),
     profileAvatar: $("profileAvatar"),
     profileName: $("profileName"),
     dataStats: $("dataStats"),
@@ -113,6 +124,10 @@
   let suppressCallExpandClick = false;
   let pendingQuote = null;
   let callSchedulerBusy = false;
+  let ledgerTab = "gringotts";
+  let ledgerSelectedDate = localDayKey();
+  let ledgerSelectedMonth = localDayKey().slice(0, 7);
+  let ledgerSelectedAccount = "all";
   const compactOpenGroups = new Set();
 
   function esc(value) {
@@ -1361,6 +1376,235 @@
     }
   }
 
+  function activeLedgerEntries() {
+    return (state.ledgerEntries || []).filter(entry => !entry.deletedAt);
+  }
+
+  function formatMoney(value) {
+    const amount = Number(value);
+    const safe = Number.isFinite(amount) ? amount : 0;
+    return `${safe < 0 ? "-" : ""}¥${Math.abs(safe).toLocaleString("zh-CN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  }
+
+  function ledgerTotals(entries) {
+    const cents = { income: 0, expense: 0 };
+    for (const entry of entries) {
+      const amount = Math.round(Number(entry.amount) * 100);
+      if (!Number.isFinite(amount) || amount <= 0) continue;
+      cents[entry.type === "income" ? "income" : "expense"] += amount;
+    }
+    return { income: cents.income / 100, expense: cents.expense / 100 };
+  }
+
+  function activeLedgerAccounts() {
+    return (state.ledgerAccounts || []).filter(account => !account.deletedAt);
+  }
+
+  function ledgerAccountById(id) {
+    return activeLedgerAccounts().find(account => account.id === id) || null;
+  }
+
+  function ledgerBalance(accountId = "all") {
+    const accounts = activeLedgerAccounts().filter(account => accountId === "all" || account.id === accountId);
+    const opening = accounts.reduce((sum, account) => sum + (Math.round(Number(account.openingBalance) * 100) || 0), 0);
+    const entries = activeLedgerEntries().filter(entry => accountId === "all" || entry.accountId === accountId);
+    const totals = ledgerTotals(entries);
+    return (opening + Math.round(totals.income * 100) - Math.round(totals.expense * 100)) / 100;
+  }
+
+  function parseMoneyInput(value, allowZero = false) {
+    if (!String(value ?? "").trim()) return null;
+    const amount = Number(value);
+    if (!Number.isFinite(amount) || Math.abs(amount) > 999999999.99 || (!allowZero && amount <= 0)) return null;
+    const rounded = Math.round(amount * 100) / 100;
+    return !allowZero && rounded <= 0 ? null : rounded;
+  }
+
+  function renderLedger() {
+    const accounts = activeLedgerAccounts();
+    const allEntries = activeLedgerEntries();
+    const allTotals = ledgerTotals(allEntries);
+    els.gringottsBalance.textContent = formatMoney(ledgerBalance());
+    els.gringottsOverview.innerHTML = [
+      [formatMoney(allTotals.income), "累计收入"],
+      [formatMoney(allTotals.expense), "累计支出"],
+      [accounts.length, "账户数量"]
+    ].map(([value, label]) => `<div class="data-stat"><strong>${esc(value)}</strong><span>${label}</span></div>`).join("");
+    els.ledgerAccountList.innerHTML = accounts.map(account => {
+      const count = allEntries.filter(entry => entry.accountId === account.id).length;
+      return `<article class="ledger-account-item"><button class="ledger-account-main" type="button" data-edit-ledger-account="${esc(account.id)}"><span><strong>${esc(account.name)}</strong><small>初始 ${esc(formatMoney(account.openingBalance))} · ${count} 笔流水</small></span><b>${esc(formatMoney(ledgerBalance(account.id)))}</b></button><button class="ledger-account-add" type="button" data-ledger-entry-account="${esc(account.id)}">记一笔</button></article>`;
+    }).join("");
+    document.querySelectorAll("[data-ledger-tab]").forEach(button => {
+      const selected = button.dataset.ledgerTab === ledgerTab;
+      button.classList.toggle("is-active", selected);
+      button.setAttribute("aria-selected", String(selected));
+    });
+    els.ledgerGringottsPanel.hidden = ledgerTab !== "gringotts";
+    els.ledgerBookkeepingPanel.hidden = ledgerTab !== "bookkeeping";
+    if (ledgerSelectedAccount !== "all" && !ledgerAccountById(ledgerSelectedAccount)) ledgerSelectedAccount = "all";
+    els.ledgerAccountFilter.innerHTML = '<option value="all">全部账户</option>' + accounts.map(account => `<option value="${esc(account.id)}">${esc(account.name)}</option>`).join("");
+    els.ledgerAccountFilter.value = ledgerSelectedAccount;
+    els.ledgerDateFilter.value = ledgerSelectedDate;
+    els.ledgerMonthFilter.value = ledgerSelectedMonth;
+    const entries = allEntries.filter(entry => ledgerSelectedAccount === "all" || entry.accountId === ledgerSelectedAccount);
+    const dayEntries = entries.filter(entry => localDayKey(new Date(entry.occurredAt || entry.createdAt)) === ledgerSelectedDate);
+    const monthEntries = entries.filter(entry => localDayKey(new Date(entry.occurredAt || entry.createdAt)).startsWith(ledgerSelectedMonth));
+    const dayTotals = ledgerTotals(dayEntries);
+    const monthTotals = ledgerTotals(monthEntries);
+    els.ledgerTotals.innerHTML = [
+      [dayTotals.expense, "日支出", "expense"],
+      [dayTotals.income, "日收入", "income"],
+      [monthTotals.expense, "月支出", "expense"],
+      [monthTotals.income, "月收入", "income"]
+    ].map(([value, label, kind]) => `<div class="ledger-total ${kind}"><span>${label}</span><strong>${esc(formatMoney(value))}</strong></div>`).join("");
+    els.clearLedgerBtn.disabled = !entries.length;
+    const sorted = [...entries].sort((a, b) => (b.occurredAt || b.createdAt) - (a.occurredAt || a.createdAt) || b.createdAt - a.createdAt);
+    els.ledgerEntryList.innerHTML = sorted.length ? sorted.map(entry => {
+      const income = entry.type === "income";
+      const occurredAt = entry.occurredAt || entry.createdAt;
+      const label = entry.note || (income ? "收入" : "支出");
+      const accountName = ledgerAccountById(entry.accountId)?.name || "默认账户";
+      return `<article class="ledger-entry"><div class="ledger-entry-copy"><strong>${esc(label)}</strong><small>${esc(localDayKey(new Date(occurredAt)))} · ${esc(accountName)} · ${income ? "收入" : "支出"}</small></div><strong class="ledger-entry-amount ${income ? "income" : "expense"}">${income ? "+" : "−"}${esc(formatMoney(entry.amount))}</strong><button class="ledger-entry-delete" type="button" data-delete-ledger-entry="${esc(entry.id)}" aria-label="删除这条流水" title="删除这条流水">×</button></article>`;
+    }).join("") : `<div class="ledger-empty">${ledgerSelectedAccount === "all" ? "还没有流水。点右上角「记一笔」，写下第一笔收入或支出吧。" : "这个账户还没有流水，点右上角「记一笔」就能添加。"}</div>`;
+  }
+
+  function openLedgerAccountForm(accountId = null) {
+    const existing = accountId ? ledgerAccountById(accountId) : null;
+    openSheet(existing ? `编辑${existing.name}` : "新建古灵阁账户", `
+      <form class="form-stack" id="ledgerAccountForm">
+        <label class="field"><span>账户名称</span><input id="ledgerAccountName" maxlength="20" value="${esc(existing?.name || "")}" placeholder="例如：微信、银行卡、现金" required></label>
+        <label class="field"><span>初始余额（元）</span><input id="ledgerAccountOpening" type="number" min="-999999999.99" max="999999999.99" step="0.01" value="${existing?.openingBalance ?? 0}" required></label>
+        <p class="data-note">账户余额＝这里的初始余额＋这个账户的收入－支出。改名和调整初始余额都不会改动已有流水。</p>
+        <div class="form-actions"><button class="small-button" id="cancelLedgerAccountBtn" type="button">取消</button><button class="small-button primary" type="submit">保存账户</button></div>
+        ${existing ? '<button class="danger-button" id="deleteLedgerAccountBtn" type="button">删除这个空账户</button>' : ""}
+      </form>`);
+    $("cancelLedgerAccountBtn").addEventListener("click", closeSheet);
+    if (existing) $("deleteLedgerAccountBtn").addEventListener("click", async () => {
+      if (activeLedgerEntries().some(entry => entry.accountId === existing.id)) {
+        toast("这个账户还有流水，先在记账页清空或删除流水，再删除账户", 3600);
+        return;
+      }
+      if (activeLedgerAccounts().length <= 1) {
+        toast("至少要保留一个账户");
+        return;
+      }
+      const approved = await confirmAction(`删除账户「${existing.name}」？`, "这个账户没有流水，删除后不会影响其他账户。", "删除账户", true);
+      if (!approved) return;
+      state.ledgerAccounts = state.ledgerAccounts.filter(account => account.id !== existing.id);
+      if (ledgerSelectedAccount === existing.id) ledgerSelectedAccount = "all";
+      await persist();
+      await closeSheet();
+      renderAll();
+      toast("空账户已删除");
+    });
+    $("ledgerAccountForm").addEventListener("submit", async event => {
+      event.preventDefault();
+      const name = clampText($("ledgerAccountName").value, 20);
+      const amount = parseMoneyInput($("ledgerAccountOpening").value, true);
+      if (!name) {
+        toast("先给账户起个名字");
+        return;
+      }
+      if (activeLedgerAccounts().some(account => account.id !== existing?.id && account.name.toLocaleLowerCase() === name.toLocaleLowerCase())) {
+        toast("已经有同名账户了，换个名字更方便区分");
+        return;
+      }
+      if (amount === null) {
+        toast("请输入有效的初始余额，最多保留两位小数");
+        return;
+      }
+      const now = Date.now();
+      const account = existing || { id: uid("ledger-account"), createdAt: now };
+      account.name = name;
+      account.openingBalance = amount;
+      account.updatedAt = now;
+      if (!existing) {
+        state.ledgerAccounts.push(account);
+        ledgerSelectedAccount = account.id;
+      }
+      await persist();
+      await closeSheet();
+      renderAll();
+      toast(existing ? "账户设置已保存" : `账户「${name}」已经建好`);
+    });
+  }
+
+  function openLedgerEntryForm(accountId = null) {
+    const accounts = activeLedgerAccounts();
+    const selectedAccount = ledgerAccountById(accountId)?.id || (ledgerSelectedAccount !== "all" && ledgerAccountById(ledgerSelectedAccount) ? ledgerSelectedAccount : accounts[0]?.id);
+    openSheet("记一笔", `
+      <form class="form-stack" id="ledgerEntryForm">
+        <label class="field"><span>计入账户</span><select id="ledgerEntryAccount" required>${accounts.map(account => `<option value="${esc(account.id)}" ${account.id === selectedAccount ? "selected" : ""}>${esc(account.name)}</option>`).join("")}</select></label>
+        <label class="field"><span>类型</span><select id="ledgerEntryType"><option value="expense">支出</option><option value="income">收入</option></select></label>
+        <label class="field"><span>金额（元）</span><input id="ledgerEntryAmount" type="number" min="0.01" max="999999999.99" step="0.01" inputmode="decimal" placeholder="0.00" required></label>
+        <label class="field"><span>日期</span><input id="ledgerEntryDate" type="date" value="${esc(ledgerSelectedDate || localDayKey())}" required></label>
+        <label class="field"><span>备注（可选）</span><input id="ledgerEntryNote" maxlength="60" placeholder="例如：蜂蜜公爵、稿费"></label>
+        <div class="form-actions"><button class="small-button" id="cancelLedgerEntryBtn" type="button">取消</button><button class="small-button primary" type="submit">保存流水</button></div>
+      </form>`);
+    $("cancelLedgerEntryBtn").addEventListener("click", closeSheet);
+    $("ledgerEntryForm").addEventListener("submit", async event => {
+      event.preventDefault();
+      const account = ledgerAccountById($("ledgerEntryAccount").value);
+      if (!account) {
+        toast("请选择要计入的账户");
+        return;
+      }
+      const amount = parseMoneyInput($("ledgerEntryAmount").value);
+      if (amount === null) {
+        toast("请输入大于 0 的有效金额，最多保留两位小数");
+        return;
+      }
+      const dateValue = $("ledgerEntryDate").value;
+      const occurredAt = new Date(`${dateValue}T12:00:00`).getTime();
+      if (!dateValue || !Number.isFinite(occurredAt)) {
+        toast("请选择流水日期");
+        return;
+      }
+      const now = Date.now();
+      state.ledgerEntries.push({
+        id: uid("ledger"),
+        accountId: account.id,
+        type: $("ledgerEntryType").value === "income" ? "income" : "expense",
+        amount,
+        note: clampText($("ledgerEntryNote").value, 60),
+        occurredAt,
+        createdAt: now,
+        updatedAt: now
+      });
+      ledgerSelectedDate = localDayKey(new Date(occurredAt));
+      ledgerSelectedMonth = ledgerSelectedDate.slice(0, 7);
+      await persist();
+      await closeSheet();
+      renderAll();
+      toast("这笔账已经记下了");
+    });
+  }
+
+  async function deleteLedgerEntry(id) {
+    const entry = activeLedgerEntries().find(item => item.id === id);
+    if (!entry) return;
+    const approved = await confirmAction("删除这条流水？", `${entry.note || (entry.type === "income" ? "收入" : "支出")} · ${formatMoney(entry.amount)}。删除后余额和日／月统计会同步更新。`, "删除流水", true);
+    if (!approved) return;
+    state.ledgerEntries = state.ledgerEntries.filter(item => item.id !== id);
+    await persist();
+    renderAll();
+    toast("这条流水已删除");
+  }
+
+  async function clearLedger() {
+    const account = ledgerSelectedAccount === "all" ? null : ledgerAccountById(ledgerSelectedAccount);
+    const entries = activeLedgerEntries().filter(entry => !account || entry.accountId === account.id);
+    if (!entries.length) return;
+    const scope = account ? `账户「${account.name}」的` : "全部账户的";
+    const approved = await confirmAction("一键清空记账流水？", `${scope}${entries.length} 笔收入与支出都会被删除，所有账户的初始余额和其他账户流水保留。清空前会自动留一份完整快照。`, "清空流水", true);
+    if (!approved) return;
+    await ZikaDB.createSnapshot(state, account ? `清空${account.name}流水前` : "清空账本流水前");
+    state.ledgerEntries = account ? state.ledgerEntries.filter(entry => entry.accountId !== account.id) : [];
+    await persist();
+    renderAll();
+    toast(account ? `「${account.name}」的流水已清空，其他账户未改动` : "记账流水已清空，初始余额仍然保留", 3200);
+  }
+
   function renderMine() {
     const me = { name: state.settings.meName || "我", avatarId: state.settings.meAvatarId, color: "#c695ad" };
     els.profileName.textContent = me.name;
@@ -1426,6 +1670,7 @@
     renderCards();
     renderMoments();
     renderLetters();
+    renderLedger();
     renderMine();
     if (activeConversationId && !els.conversationView.hidden) renderConversation();
     renderNotificationDots();
@@ -2538,7 +2783,7 @@
     const snapshots = await ZikaDB.listSnapshots();
     if (els.modalLayer.hidden || els.sheetTitle.textContent !== "本地快照") return;
     els.sheetBody.innerHTML = snapshots.length
-      ? `<p class="data-note" style="margin-bottom:12px">导入、清空和永久删除前会自动留下。最多保留最近 10 份；它们仍在这个浏览器里，不能代替导出文件。</p><div class="snapshot-list">${snapshots.map(item => `<article class="snapshot-item"><strong>${esc(item.reason)}</strong><p>${esc(formatFullTime(item.createdAt))} · ${item.characters} 名角色 · ${item.conversations} 个会话 · ${item.cards} 张字卡 · ${item.calls || 0} 次通话 · ${item.moments} 条朋友圈 · ${item.letters} 封信 · ${item.assets} 个本地资产</p><div class="snapshot-actions"><button class="small-button primary" type="button" data-restore-snapshot="${esc(item.id)}">恢复到这一刻</button></div></article>`).join("")}</div>`
+      ? `<p class="data-note" style="margin-bottom:12px">导入、清空和永久删除前会自动留下。最多保留最近 10 份；它们仍在这个浏览器里，不能代替导出文件。</p><div class="snapshot-list">${snapshots.map(item => `<article class="snapshot-item"><strong>${esc(item.reason)}</strong><p>${esc(formatFullTime(item.createdAt))} · ${item.characters} 名角色 · ${item.conversations} 个会话 · ${item.cards} 张字卡 · ${item.calls || 0} 次通话 · ${item.moments} 条朋友圈 · ${item.letters} 封信 · ${item.ledgerAccounts || 0} 个账户 · ${item.ledgerEntries || 0} 笔流水 · ${item.assets} 个本地资产</p><div class="snapshot-actions"><button class="small-button primary" type="button" data-restore-snapshot="${esc(item.id)}">恢复到这一刻</button></div></article>`).join("")}</div>`
       : emptyState("clock", "还没有本地快照", "第一次导入、清空或永久删除前，会自动留下一份。");
   }
 
@@ -2619,7 +2864,7 @@
     for (const key of ["moments", "letters", "reactions"]) {
       if (data.state[key] === undefined) data.state[key] = [];
     }
-    for (const key of ["characters", "conversations", "messages", "calls", "cards", "moments", "letters", "reactions", "trash"]) {
+    for (const key of ["characters", "conversations", "messages", "calls", "cards", "moments", "letters", "reactions", "ledgerEntries", "ledgerAccounts", "trash"]) {
       if (!Array.isArray(data.state[key])) throw new Error(`备份里的 ${key} 格式不完整`);
       for (const item of data.state[key]) {
         if (!item || typeof item.id !== "string" || !item.id) throw new Error(`备份里的 ${key} 有缺失 ID`);
@@ -2640,7 +2885,7 @@
     openSheet("导入完整备份", `
       <div class="import-summary">
         备份时间：<strong>${esc(data.exportedAt ? formatFullTime(data.exportedAt) : "未知")}</strong><br>
-        角色 <strong>${counts[0]}</strong> · 会话 <strong>${counts[1]}</strong> · 字卡 <strong>${counts[2]}</strong> · 消息 <strong>${counts[3]}</strong> · 本地资产 <strong>${data.assets.length}</strong>
+        角色 <strong>${counts[0]}</strong> · 会话 <strong>${counts[1]}</strong> · 字卡 <strong>${counts[2]}</strong> · 消息 <strong>${counts[3]}</strong> · 账本账户 <strong>${data.state.ledgerAccounts.length}</strong> · 流水 <strong>${data.state.ledgerEntries.length}</strong> · 本地资产 <strong>${data.assets.length}</strong>
       </div>
       <p class="import-warning">合并导入：保留本机现有内容，同 ID 记录以本机版本为准。<br>全量恢复：用备份替换当前小手机，操作前会自动给现在留快照。</p>
       <div class="form-actions" style="margin-top:16px">
@@ -2690,7 +2935,7 @@
           if (!existingAssets.has(asset.id)) await ZikaDB.putAsset(asset);
         }
         const summary = {};
-        for (const key of ["characters", "conversations", "messages", "calls", "cards", "moments", "letters", "reactions", "trash"]) {
+        for (const key of ["characters", "conversations", "messages", "calls", "cards", "moments", "letters", "reactions", "ledgerEntries", "ledgerAccounts", "trash"]) {
           const ids = new Set(state[key].map(item => item.id));
           let added = 0;
           let skipped = 0;
@@ -2748,7 +2993,7 @@
   }
 
   function navigate(view) {
-    if (!["home", "chats", "characters", "cards", "moments", "letters", "mine"].includes(view)) return;
+    if (!["home", "chats", "characters", "cards", "moments", "letters", "ledger", "mine"].includes(view)) return;
     if (!els.conversationView.hidden) closeConversation();
     currentView = view;
     if (view === "moments") clearMomentUnread();
@@ -2766,6 +3011,7 @@
     else if (view === "cards") renderCards();
     else if (view === "moments") renderMoments();
     else if (view === "letters") renderLetters();
+    else if (view === "ledger") renderLedger();
     else if (view === "mine") renderMine();
     renderNotificationDots();
   }
@@ -2926,13 +3172,15 @@
     const rawReplyTags = Array.isArray(message.replyTags) ? message.replyTags : message.source === "dictionary" ? ["词典"] : [];
     const replyTags = mine ? [] : [...new Set(rawReplyTags.filter(tag => allowedReplyTags.includes(tag)))];
     const sourceTags = replyTags.length ? `<div class="message-source-tags">${replyTags.map(tag => `<span class="message-source-tag">${esc(tag)}</span>`).join("")}</div>` : "";
-    const text = message.special === "read"
+    const text = message.special === "gringottsBalance"
+      ? `<button class="message-bubble gringotts-message-card" type="button" data-open-gringotts><span>古灵阁 · 余额查询</span><strong>${esc(message.text)}</strong><small>查看账本 ›</small></button>`
+      : message.special === "read"
       ? `<div class="message-bubble read-receipt">${esc(message.text || "已读不回")}</div>`
       : message.knowledgeId ? `<div class="message-bubble knowledge-message-bubble">${quote}${esc(knowledgeMessageText(message))}${knowledgeCard}</div>`
       : message.text && !message.quiz ? `<div class="message-bubble ${message.assetId ? "message-caption" : ""}">${quote}${esc(message.text)}${sourceTags}</div>` : "";
     const note = message.note ? `<div class="message-note">${esc(message.note)}</div>` : "";
     const saveAction = mine && message.text && !message.quiz ? `<button class="message-action" type="button" data-save-message="${esc(message.id)}" aria-label="把这条消息收进字卡" title="收进字卡">＋</button>` : "";
-    const quoteAction = !mine && message.text && !message.quiz && message.special !== "read" ? `<button class="message-action quote-message-action" type="button" data-quote-message="${esc(message.id)}" title="引用这句字卡">引用</button>` : "";
+    const quoteAction = !mine && message.text && !message.quiz && !["read", "gringottsBalance"].includes(message.special) ? `<button class="message-action quote-message-action" type="button" data-quote-message="${esc(message.id)}" title="引用这句字卡">引用</button>` : "";
     return `${showTime ? `<div class="message-time">${esc(formatMessageDivider(message.createdAt))}</div>` : ""}<div class="message-row ${mine ? "mine" : ""}" data-message-id="${esc(message.id)}">${avatarMarkup(person, "tiny")}<div class="message-body"><div class="message-content">${sender}${quiz}${image}${text}${note}</div><div class="message-actions">${quoteAction}${saveAction}<button class="message-action" type="button" data-delete-message="${esc(message.id)}" aria-label="删除这条消息" title="删除这条消息">…</button></div></div></div>`;
   }
 
@@ -3559,7 +3807,17 @@
         }
       }
     }
+    if (Math.random() * 100 < settings.balanceChance) {
+      const balance = ledgerBalance();
+      outgoing.unshift({
+        text: `[查询了你的古灵阁余额，有${formatMoney(balance)}]`,
+        source: "gringotts",
+        special: "gringottsBalance",
+        balance
+      });
+    }
     if (!outgoing.length) return false;
+    const quoteCardIndex = outgoing.findIndex(card => !card.special);
     const quoteCandidates = state.messages.filter(message => message.conversationId === conversation.id && message.senderId === "me" && !message.deletedAt && !message.quiz && message.text).sort((a, b) => a.createdAt - b.createdAt).slice(-10);
     const quoted = !proactive && quoteCandidates.length && Math.random() * 100 < settings.quoteChance
       ? quoteCandidates[Math.floor(Math.random() * quoteCandidates.length)]
@@ -3588,6 +3846,8 @@
           senderName: currentCharacter.name,
           text: card.text || "",
           source: card.source || (card.dictionary ? "dictionary" : "cards"),
+          special: card.special || "",
+          balance: Number.isFinite(card.balance) ? card.balance : null,
           replyTags: Array.isArray(card.replyTags) ? card.replyTags : [],
           knowledgeId: card.knowledgeId || "",
           knowledgeTitle: card.knowledgeTitle || "",
@@ -3595,9 +3855,9 @@
           knowledgeSource: card.knowledgeSource || "",
           proactive,
           mediaKind: card.mediaKind || "",
-          note: notePool.length && Math.random() * 100 < settings.noteChance ? notePool[Math.floor(Math.random() * notePool.length)] : "",
-          quoteMessageId: index === 0 && quoted ? quoted.id : "",
-          quoteText: index === 0 && quoted ? quoted.text.slice(0, 160) : "",
+          note: !card.special && notePool.length && Math.random() * 100 < settings.noteChance ? notePool[Math.floor(Math.random() * notePool.length)] : "",
+          quoteMessageId: index === quoteCardIndex && quoted ? quoted.id : "",
+          quoteText: index === quoteCardIndex && quoted ? quoted.text.slice(0, 160) : "",
           assetId: card.assetId || "",
           createdAt: Date.now(),
           deletedAt: null
@@ -3778,6 +4038,7 @@
           ${isPrivate ? `<label class="field"><span>已读不回概率（%）</span><input id="replyIgnoreChance" type="number" min="0" max="100" step="1" value="${settings.ignoreChance}" required></label>` : `<label class="field"><span>每名成员回复概率（%）</span><input id="replyGroupReplyChance" type="number" min="0" max="100" step="1" value="${settings.groupReplyChance}" required><small>每名成员独立判定；@角色名必回。</small></label>`}
           <label class="field"><span>引用回复概率（%）</span><input id="replyQuoteChance" type="number" min="0" max="100" step="1" value="${settings.quoteChance}" required></label>
           <label class="field"><span>情绪／意图小注概率（%）</span><input id="replyNoteChance" type="number" min="0" max="100" step="1" value="${settings.noteChance}" required></label>
+          <label class="field"><span>古灵阁查询概率（%）</span><input id="replyBalanceChance" type="number" min="0" max="100" step="1" value="${settings.balanceChance}" required><small>每次回复独立判定；查询卡片会作为额外一条消息发出，0% 关闭。</small></label>
         </div>
         <label class="toggle-field"><input id="replyMergeCards" type="checkbox" ${settings.mergeCards ? "checked" : ""}><span><strong>多字卡回复</strong><small>开启后，每条回复按下面的概率抽多张字卡并拼成一条；它也是词典回复的总开关。</small></span></label>
         <div class="field-grid">
@@ -3833,6 +4094,7 @@
         groupReplyChance: isPrivate ? settings.groupReplyChance : $("replyGroupReplyChance").value,
         quoteChance: $("replyQuoteChance").value,
         noteChance: $("replyNoteChance").value,
+        balanceChance: $("replyBalanceChance").value,
         mergeCards: $("replyMergeCards").checked,
         multiChance: $("replyMultiChance").value,
         multiMin: $("replyMultiMin").value,
@@ -3917,6 +4179,33 @@
       const nav = target.closest("[data-nav]");
       if (nav) {
         navigate(nav.dataset.nav);
+        return;
+      }
+      const ledgerTabButton = target.closest("[data-ledger-tab]");
+      if (ledgerTabButton) {
+        ledgerTab = ledgerTabButton.dataset.ledgerTab === "bookkeeping" ? "bookkeeping" : "gringotts";
+        renderLedger();
+        return;
+      }
+      const editLedgerAccountButton = target.closest("[data-edit-ledger-account]");
+      if (editLedgerAccountButton) {
+        openLedgerAccountForm(editLedgerAccountButton.dataset.editLedgerAccount);
+        return;
+      }
+      const accountEntryButton = target.closest("[data-ledger-entry-account]");
+      if (accountEntryButton) {
+        openLedgerEntryForm(accountEntryButton.dataset.ledgerEntryAccount);
+        return;
+      }
+      const deleteLedgerButton = target.closest("[data-delete-ledger-entry]");
+      if (deleteLedgerButton) {
+        await deleteLedgerEntry(deleteLedgerButton.dataset.deleteLedgerEntry);
+        return;
+      }
+      const openGringottsButton = target.closest("[data-open-gringotts]");
+      if (openGringottsButton) {
+        ledgerTab = "gringotts";
+        navigate("ledger");
         return;
       }
       const action = target.closest("[data-action]");
@@ -4090,6 +4379,21 @@
     $("newGroupBtn").addEventListener("click", () => openGroupForm());
     $("newMomentBtn").addEventListener("click", openMomentComposer);
     $("newLetterBtn").addEventListener("click", openLetterComposer);
+    $("newLedgerEntryBtn").addEventListener("click", () => openLedgerEntryForm());
+    $("newLedgerAccountBtn").addEventListener("click", () => openLedgerAccountForm());
+    els.clearLedgerBtn.addEventListener("click", clearLedger);
+    els.ledgerAccountFilter.addEventListener("change", () => {
+      ledgerSelectedAccount = els.ledgerAccountFilter.value;
+      renderLedger();
+    });
+    els.ledgerDateFilter.addEventListener("change", () => {
+      ledgerSelectedDate = els.ledgerDateFilter.value || localDayKey();
+      renderLedger();
+    });
+    els.ledgerMonthFilter.addEventListener("change", () => {
+      ledgerSelectedMonth = els.ledgerMonthFilter.value || localDayKey().slice(0, 7);
+      renderLedger();
+    });
     els.letterDirectionFilter.addEventListener("change", renderLetters);
     els.letterCharacterFilter.addEventListener("change", renderLetters);
     $("newCardBtn").addEventListener("click", () => openCardForm());

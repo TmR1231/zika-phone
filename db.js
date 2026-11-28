@@ -14,6 +14,16 @@
     return `${prefix}-${value}`;
   }
 
+  function defaultLedgerAccount(openingBalance = 0, createdAt = Date.now()) {
+    return {
+      id: "ledger-account-default",
+      name: "默认账户",
+      openingBalance,
+      createdAt,
+      updatedAt: createdAt
+    };
+  }
+
   function blankState() {
     const now = Date.now();
     return {
@@ -26,6 +36,8 @@
       moments: [],
       letters: [],
       reactions: [],
+      ledgerEntries: [],
+      ledgerAccounts: [defaultLedgerAccount(0, now)],
       trash: [],
       settings: {
         meName: "我",
@@ -61,10 +73,36 @@
     const base = blankState();
     const input = value && typeof value === "object" ? value : {};
     const state = { ...base, ...input };
-    for (const key of ["characters", "conversations", "messages", "calls", "cards", "moments", "letters", "reactions", "trash"]) {
+    for (const key of ["characters", "conversations", "messages", "calls", "cards", "moments", "letters", "reactions", "ledgerEntries", "trash"]) {
       state[key] = Array.isArray(input[key]) ? input[key] : [];
     }
     state.settings = { ...base.settings, ...(input.settings || {}) };
+    const legacyOpening = Number(input.settings?.gringottsOpeningBalance);
+    const openingBalance = Number.isFinite(legacyOpening) ? Math.round(legacyOpening * 100) / 100 : 0;
+    const accounts = Array.isArray(input.ledgerAccounts) && input.ledgerAccounts.length
+      ? input.ledgerAccounts
+      : [defaultLedgerAccount(openingBalance, state.createdAt || Date.now())];
+    const accountIds = new Set();
+    state.ledgerAccounts = accounts.map(account => {
+      let id = String(account?.id || "").slice(0, 160);
+      if (!id || accountIds.has(id)) id = uid("ledger-account");
+      accountIds.add(id);
+      const opening = Number(account?.openingBalance);
+      const createdAt = Number(account?.createdAt) || state.createdAt || Date.now();
+      return {
+        ...account,
+        id,
+        name: String(account?.name || "默认账户").trim().slice(0, 20) || "默认账户",
+        openingBalance: Number.isFinite(opening) ? Math.round(opening * 100) / 100 : 0,
+        createdAt,
+        updatedAt: Number(account?.updatedAt) || createdAt
+      };
+    });
+    const fallbackAccountId = state.ledgerAccounts[0].id;
+    for (const entry of state.ledgerEntries) {
+      if (!accountIds.has(entry.accountId)) entry.accountId = fallbackAccountId;
+    }
+    delete state.settings.gringottsOpeningBalance;
     if (!["default", "miffy", "custom"].includes(state.settings.bubbleStyle)) state.settings.bubbleStyle = "default";
     state.settings.customBubbleCss = String(state.settings.customBubbleCss || "").slice(0, 20000);
     for (const key of ["notePresets", "statusPresets", "readPresets", "knowledgePresets", "dictionary", "unreadConversationIds", "unreadMomentIds"]) {
@@ -217,6 +255,8 @@
       calls: (item.state.calls || []).length,
       moments: (item.state.moments || []).length,
       letters: (item.state.letters || []).length,
+      ledgerEntries: (item.state.ledgerEntries || []).length,
+      ledgerAccounts: (item.state.ledgerAccounts || []).length,
       assets: item.assets.length
     }));
   }

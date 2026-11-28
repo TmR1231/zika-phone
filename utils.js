@@ -65,6 +65,7 @@
       groupReplyChance: number(input.groupReplyChance, 45, 0, 100),
       quoteChance: number(input.quoteChance, 30, 0, 100),
       noteChance: number(input.noteChance, 35, 0, 100),
+      balanceChance: number(input.balanceChance, 8, 0, 100),
       mergeCards: input.mergeCards === undefined ? true : input.mergeCards === true,
       multiChance: number(input.multiChance, 50, 0, 100),
       multiMin,

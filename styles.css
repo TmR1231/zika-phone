@@ -3593,6 +3593,327 @@ html[data-theme="dark"] .group-batch-button:hover {
   color: #111111;
 }
 
+.app-gold { background: linear-gradient(145deg, #d8bc83, #b99a61); }
+
+.ledger-tabs {
+  margin: -3px 0 16px;
+}
+
+.ledger-tabs button {
+  flex: 1;
+  min-height: 34px;
+}
+
+.gringotts-balance-card {
+  position: relative;
+  overflow: hidden;
+  padding: 24px 20px 20px;
+  border: 1px solid color-mix(in srgb, #b99a61 25%, var(--line));
+  border-radius: 24px;
+  background: linear-gradient(145deg, color-mix(in srgb, #d8bc83 24%, var(--surface-solid)), var(--surface-solid) 68%);
+  box-shadow: var(--small-shadow);
+}
+
+.gringotts-balance-card::after {
+  content: "G";
+  position: absolute;
+  right: 14px;
+  top: -23px;
+  color: color-mix(in srgb, #b99a61 12%, transparent);
+  font-family: Georgia, serif;
+  font-size: 126px;
+  line-height: 1;
+  pointer-events: none;
+}
+
+.gringotts-balance-card > span {
+  color: var(--ink-soft);
+  font-size: 11px;
+  font-weight: 650;
+  letter-spacing: 0.08em;
+}
+
+.gringotts-balance-card > strong {
+  position: relative;
+  z-index: 1;
+  display: block;
+  margin: 9px 0 5px;
+  color: var(--ink);
+  font-size: clamp(30px, 9vw, 40px);
+  line-height: 1.2;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+
+.gringotts-balance-card > p {
+  margin-bottom: 17px;
+  color: var(--ink-faint);
+  font-size: 10px;
+}
+
+.gringotts-overview {
+  margin: 12px 0;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.gringotts-overview .data-stat {
+  min-width: 0;
+  padding: 13px 8px;
+}
+
+.gringotts-overview .data-stat strong {
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+
+.gringotts-overview .data-stat span {
+  font-size: 10px;
+}
+
+.ledger-account-heading {
+  margin: 20px 2px 10px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.ledger-account-heading h2 {
+  font-size: 14px;
+}
+
+.ledger-account-list {
+  margin-bottom: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+}
+
+.ledger-account-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: stretch;
+  gap: 8px;
+}
+
+.ledger-account-main {
+  min-width: 0;
+  padding: 14px 15px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border: 1px solid var(--line);
+  border-radius: 17px;
+  color: var(--ink);
+  background: var(--surface-solid);
+  box-shadow: var(--small-shadow);
+  text-align: left;
+}
+
+.ledger-account-main > span {
+  min-width: 0;
+}
+
+.ledger-account-main strong {
+  display: block;
+  overflow: hidden;
+  font-size: 13px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ledger-account-main small {
+  display: block;
+  margin-top: 5px;
+  color: var(--ink-faint);
+  font-size: 10px;
+  line-height: 1.5;
+}
+
+.ledger-account-main b {
+  flex: none;
+  color: var(--accent-deep);
+  font-size: 16px;
+  font-variant-numeric: tabular-nums;
+}
+
+.ledger-account-add {
+  padding: 0 12px;
+  border: 1px solid color-mix(in srgb, #b99a61 25%, var(--line));
+  border-radius: 15px;
+  color: #92733c;
+  background: color-mix(in srgb, #d8bc83 14%, var(--surface-solid));
+  font-size: 11px;
+  font-weight: 650;
+  white-space: nowrap;
+}
+
+html[data-theme="dark"] .ledger-account-add {
+  color: #dfc58f;
+}
+
+.ledger-filters {
+  margin-bottom: 12px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 9px;
+}
+
+.ledger-account-filter {
+  grid-column: 1 / -1;
+}
+
+.ledger-filters input,
+.ledger-filters select {
+  min-width: 0;
+  padding: 9px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  color: var(--ink);
+  background: var(--surface-solid);
+  font-size: 11px;
+}
+
+.ledger-totals {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.ledger-total {
+  padding: 13px 14px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--surface-solid);
+}
+
+.ledger-total span {
+  display: block;
+  margin-bottom: 5px;
+  color: var(--ink-faint);
+  font-size: 10px;
+}
+
+.ledger-total strong {
+  color: var(--ink);
+  font-size: 16px;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+
+.ledger-total.income strong,
+.ledger-entry-amount.income {
+  color: #638c74;
+}
+
+.ledger-total.expense strong,
+.ledger-entry-amount.expense {
+  color: #b77983;
+}
+
+.ledger-list-heading {
+  margin: 20px 2px 10px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.ledger-list-heading h2 {
+  font-size: 14px;
+}
+
+.ledger-entry-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.ledger-entry {
+  padding: 12px 13px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 9px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--surface-solid);
+}
+
+.ledger-entry-copy {
+  min-width: 0;
+}
+
+.ledger-entry-copy strong {
+  display: block;
+  overflow: hidden;
+  color: var(--ink);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ledger-entry-copy small {
+  display: block;
+  margin-top: 4px;
+  color: var(--ink-faint);
+  font-size: 10px;
+}
+
+.ledger-entry-amount {
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.ledger-entry-delete {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  color: var(--ink-faint);
+  background: var(--surface-soft);
+  font-size: 15px;
+}
+
+.ledger-empty {
+  padding: 28px 16px;
+  color: var(--ink-faint);
+  font-size: 11px;
+  line-height: 1.7;
+  text-align: center;
+}
+
+.gringotts-message-card {
+  width: min(250px, 100%);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  color: var(--ink);
+  background: linear-gradient(145deg, color-mix(in srgb, #d8bc83 25%, var(--surface-solid)), var(--surface-solid));
+  text-align: left;
+}
+
+.gringotts-message-card > span {
+  color: #9a7b43;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+
+.gringotts-message-card > strong {
+  font-size: 12px;
+  line-height: 1.65;
+  font-weight: 600;
+  white-space: pre-wrap;
+}
+
+.gringotts-message-card > small {
+  align-self: flex-end;
+  color: var(--ink-faint);
+  font-size: 9px;
+}
+
 @keyframes typing {
   0%, 60%, 100% { transform: translateY(0); opacity: 0.45; }
   30% { transform: translateY(-3px); opacity: 1; }

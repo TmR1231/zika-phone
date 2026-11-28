@@ -49,6 +49,10 @@
                   <span class="app-symbol app-lilac"><span class="icon icon-book" aria-hidden="true"></span></span>
                   <span>字卡</span>
                 </button>
+                <button class="app-button" type="button" data-nav="ledger">
+                  <span class="app-symbol app-gold"><span class="icon icon-reports" aria-hidden="true"></span></span>
+                  <span>账本</span>
+                </button>
                 <button class="app-button" type="button" data-nav="mine">
                   <span class="app-symbol app-sage"><span class="icon icon-reports" aria-hidden="true"></span></span>
                   <span>数据</span>
@@ -170,6 +174,41 @@
             <select id="letterCharacterFilter" aria-label="按角色筛选信件"><option value="all">全部角色</option></select>
           </div>
           <div id="letterList" class="social-list"></div>
+        </section>
+
+        <section class="view standard-view" id="view-ledger" data-view="ledger" aria-label="账本">
+          <header class="view-header">
+            <div><p class="eyebrow">GRINGOTTS LEDGER</p><h1>账本</h1></div>
+            <button class="small-button primary" id="newLedgerEntryBtn" type="button">记一笔</button>
+          </header>
+          <div class="segmented ledger-tabs" role="tablist" aria-label="账本板块">
+            <button class="is-active" id="gringottsTabBtn" type="button" role="tab" aria-selected="true" data-ledger-tab="gringotts">古灵阁</button>
+            <button id="bookkeepingTabBtn" type="button" role="tab" aria-selected="false" data-ledger-tab="bookkeeping">记账</button>
+          </div>
+          <section id="ledgerGringottsPanel" aria-label="古灵阁余额">
+            <div class="gringotts-balance-card">
+              <span>当前余额</span>
+              <strong id="gringottsBalance">¥0.00</strong>
+              <p>全部账户的初始余额＋收入－支出</p>
+            </div>
+            <div class="gringotts-overview" id="gringottsOverview"></div>
+            <div class="ledger-account-heading"><h2>我的账户</h2><button class="text-button" id="newLedgerAccountBtn" type="button">＋ 新建账户</button></div>
+            <div class="ledger-account-list" id="ledgerAccountList"></div>
+            <p class="data-note">点账户可以改名、调整初始余额或删除空账户。角色查询卡片展示全部账户的总余额。</p>
+          </section>
+          <section id="ledgerBookkeepingPanel" aria-label="记账" hidden>
+            <div class="ledger-filters">
+              <label class="field ledger-account-filter"><span>账户</span><select id="ledgerAccountFilter"><option value="all">全部账户</option></select></label>
+              <label class="field"><span>日收支</span><input id="ledgerDateFilter" type="date"></label>
+              <label class="field"><span>月收支</span><input id="ledgerMonthFilter" type="month"></label>
+            </div>
+            <div class="ledger-totals" id="ledgerTotals"></div>
+            <div class="ledger-list-heading">
+              <h2>流水明细</h2>
+              <button class="text-button muted" id="clearLedgerBtn" type="button">一键清空</button>
+            </div>
+            <div class="ledger-entry-list" id="ledgerEntryList"></div>
+          </section>
         </section>
 
         <section class="view standard-view" id="view-mine" data-view="mine" aria-label="我的和数据">
